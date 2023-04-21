@@ -14,12 +14,53 @@ import ListTask from "./ListTask.vue";
 //  observador personalizado =     watch(valor, (nuevoValor, antiguoValor) => {
 
 import { ref, onMounted, computed, watch } from "vue";
+import axios from 'axios';
 
 const todos = ref([]);
 const name = ref("");
 
 const input_content = ref("");
 const input_category = ref(null);
+
+
+//**************** API DEL JSON*************** */
+
+// const obtenerTareas = ref(null)
+
+async function getTarea(){
+    //let isError = false
+
+    try{
+        const response = await axios.get(" http://localhost:3000/tareasBack")
+        const obtenerTareas = await response.data
+        console.log( "****Obtenemos back", obtenerTareas);
+        // content.value=obtenerTareas.content;
+        // category.value= obtenerTareas.category;
+        // done.value= category.done;
+        // createdAt.value= obtenerTareas.createdAt;
+        // console.log( "****Obtenemos back", content.value);
+        // console.log( "****Obtenemos back", category.value);
+
+        
+    }catch (error) {
+        console.log("****",error);
+    }
+
+
+}
+
+ getTarea()
+
+
+//**************** API DEL JSON*************** */
+
+
+
+
+
+
+
+
 //ascendente (lista por fecha. mostrar el ultimo por delantado (.createdAt))
 const todos_asc = computed(() =>
   todos.value.sort((a, b) => {
@@ -78,7 +119,10 @@ const removeTodo = (todo) => {
 watch(
   todos,
   (newVal) => {
-    localStorage.setItem("todos", JSON.stringify(newVal));
+    // localStorage.setItem("todos", JSON.stringify(newVal));
+    axios.post("http://localhost:3000/tareasBack", newVal).then((result) => {
+    console.log(result);
+  });
   },
   { deep: true }
 );
@@ -97,6 +141,7 @@ onMounted(() => {
   //convertimos
   todos.value = JSON.parse(localStorage.getItem("todos")) || [];
 });
+
 </script>
 
 <template>
