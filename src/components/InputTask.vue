@@ -1,18 +1,5 @@
 <script setup>
 import ListTask from "./ListTask.vue";
-//
-//created = se ejecuta antes del onMounted pero no se tiene acceso al DOM
-//onMounted = Cuando el componente se ha montado o hay cosas visibles (tengo acceso al DOM)...
-
-//computed = propiedades computadas quedan almacenadas en la cache del pc,y son propiedades que calculan
-// y devuelven un valor basado en uno o más valores reactivos. Estas propiedades se actualizan automáticamente cuando sus dependencias reactivas cambian
-// Básicamente una computada es una variable, la diferencia con las Variables de Vue es que las computadas normalmente transforman la variable o hacen algún tipo de cálculo antes de devolverla.
-// Es por eso que para cualquier lógica compleja, deberia usar una propiedad computada.
-
-// watch = es una forma de reaccionar a cambios en una o varias variables reactivas. Al utilizar esta propiedad, podemos ejecutar una función cada vez que una variable reactiva observada cambia.
-// Creamos una función que se ejecutará cada vez que la variable "valor" cambie:
-//  observador personalizado =     watch(valor, (nuevoValor, antiguoValor) => {
-
 import { ref, onMounted, computed, watch } from "vue";
 import axios from 'axios';
 
@@ -21,125 +8,106 @@ const name = ref("");
 
 const input_content = ref("");
 const input_category = ref(null);
+const input_editing = ref(false);
+const todo_editing = ref(null);
 
-
-//**************** API DEL JSON*************** */
-
-// const obtenerTareas = ref(null)
-
-async function getTarea(){
-    //let isError = false
-
-    try{
-        const response = await axios.get(" http://localhost:3000/tareasBack")
-        const obtenerTareas = await response.data
-        console.log( "****Obtenemos back", obtenerTareas);
-        // content.value=obtenerTareas.content;
-        // category.value= obtenerTareas.category;
-        // done.value= category.done;
-        // createdAt.value= obtenerTareas.createdAt;
-        // console.log( "****Obtenemos back", content.value);
-        // console.log( "****Obtenemos back", category.value);
-
-        
-    }catch (error) {
-        console.log("****",error);
-    }
-
-
-}
-
- getTarea()
-
-
-//**************** API DEL JSON*************** */
-
-
-
-
-
-
-
-
-//ascendente (lista por fecha. mostrar el ultimo por delantado (.createdAt))
 const todos_asc = computed(() =>
   todos.value.sort((a, b) => {
-    // ordenamos el array   y     teoria  .createdAt
-    // 0 <    -> a esta en un indice menor que b (resultado #negativo)
-    // 0      a y b podrian estar iguales
-    // >0     -> a esta en un indice mayor que b (resultado positivo)
-    //De forma predeterminada, la sort()función ordena los valores como cadenas .
-    //Esto funciona bien para cadenas ("Apple" viene antes de "Banana").
-    //Sin embargo, si los números se ordenan como cadenas, "25" es mayor que "100", porque "2" es mayor que "1".
-    //Debido a esto, el sort()método producirá un resultado incorrecto al ordenar números.
-    //Puede solucionar esto proporcionando una función de comparación :
-
-    //.createdAt
-    //En el ejemplo proporcionado, la propiedad .createdAt es una propiedad de cada elemento en el array todos, y representa la fecha en que se creó el elemento.
-    //Es importante destacar que la propiedad .createdAt no es una propiedad predefinida en JavaScript, sino que es una propiedad personalizada definida por el programador. En otras palabras, es posible que la propiedad .createdAt no exista en todos los elementos del array todos, o que tenga un valor nulo o indefinido.
-    //La función de la propiedad .createdAt en este ejemplo es proporcionar una fecha de referencia para ordenar los elementos en el array todos de forma ascendente. Al comparar los valores de .createdAt de cada elemento, se puede determinar el orden en que se crearon los elementos.
-    //Es importante tener en cuenta que la propiedad .createdAt no es una función en sí misma, sino simplemente una propiedad que contiene un valor de fecha. En el código de Vue 3 proporcionado, se accede a esta propiedad usando la notación de punto, como a.createdAt y b.createdAt. Esto permite que la función de comparación en sort() acceda al valor de la propiedad .createdAt de cada elemento del array todos
     return b.createdAt - a.createdAt;
   })
 );
-//Añadir tareas con sus valores
-const addTodo = () => {
-  //Verificamos si solo se han agregado espacion en el input o no se ha seleccionado una categoria
+
+const addTodo = async () => {
   if (input_content.value.trim() === "" || input_category.value === null) {
-    //si uno esta vacio o el otro bull, no se hara nada
     return;
   }
   console.log("Añadir la tarea...");
-  //insertar contenido
-  todos.value.push({
-    //se ingresara algo de contenido que vendra de (input_content.value)
+  const newTodo = {
     content: input_content.value,
-    //nuestro valor de categoria
     category: input_category.value,
-    //de manera predeterminada no se establecera nada como hecho
     done: false,
-    //crear la nueva fecha en milisegundos (.getTime()) que usaremos para comparar
     createdAt: new Date().getTime(),
-  });
-  //resetear valores de los campos depues que se añaden
+  };
+  try {
+    const response = await axios.post("http://localhost:3000/tareasBack", newTodo);
+    todos.value.push(response.data);
+    input_content.value = "";
+    input_category.value = null;
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+const removeTodo = async (todo) => {
+  try {
+    await axios.delete(`http://localhost:3000/tareasBack/${todo.id}`);
+    todos.value = todos.value.filter((t) => t !== todo);
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+const editTodo = (todo) => {
+  input_editing.value = true;
+  todo_editing.value = todo;
+  input_content.value = todo.content;
+  input_category.value = todo.category;
+};
+
+const updateTodo = async () => {
+  if (input_content.value.trim() === "" || input_category.value === null) {
+    return;
+  }
+  console.log("Modificando tarea...");
+  const updatedTodo = {
+    ...todo_editing.value,
+    content: input_content.value,
+    category: input_category.value,
+  };
+  try {
+    await axios.put(`http://localhost:3000/tareasBack/${updatedTodo.id}`, updatedTodo);
+    const index = todos.value.findIndex((t) => t.id === updatedTodo.id);
+    todos.value.splice(index, 1, updatedTodo);
+    input_content.value = "";
+    input_category.value = null;
+    input_editing.value = false;
+    todo_editing.value = null;
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+const cancelEditing = () => {
+  input_editing.value = false;
+  todo_editing.value = null;
   input_content.value = "";
   input_category.value = null;
 };
 
-//Funcion para eliminar tarea
-const removeTodo = (todo) => {
-  // (t = cada elemento) vamos a recorrer cada una de las tareas y verificamos si no es igual a
-  // todo, luego se agregara nuevamente  la matriz.
-  //El filtro utiliza una función de flecha que compara cada elemento "t" en el array con el parámetro "todo" utilizando el operador !== (distinto de) y devuelve un nuevo array con todos los elementos que no son iguales a "todo".
-  // si es igual, no se agregara a la matriz y devolvera falso
-  todos.value = todos.value.filter((t) => t !== todo);
+const captarTodos = async () => {
+  try {
+    const response = await axios.get("http://localhost:3000/tareasBack");
+    todos.value = response.data;
+  } catch (error) {
+    console.error(error);
+  }
 };
 
-//Agregar las tareas ya añadidas al LS
-watch(
-  todos,
-  (newVal) => {
-    // localStorage.setItem("todos", JSON.stringify(newVal));
-    axios.post("http://localhost:3000/tareasBack", newVal).then((result) => {
-    console.log(result);
-  });
-  },
-  { deep: true }
-);
-//deep = revisara todo, cada elemento de la matriz individual aqui(todos.value.push) y si
-//alguno de ellos cambia, lo detectara y luego llamaremos a la funcion
-//( localStorage.setItem("todos", JSON.stringify(newVal)) otra vez
+watch(todos, async (newVal) => {
+  try {
+    await axios.put(`http://localhost:3000/tareasBack`, newVal);
+  } catch (error) {
+    console.error(error);
+  }
+}, { deep: true });
 
-//miramos el "name"  y si este cambia,obtendremos el nuevo valor y
-//vamos a configurarlo en nuestro almacenamiento.
 watch(name, (newVal) => {
   localStorage.setItem("name", newVal);
 });
-//obtenemos de LS
-onMounted(() => {
+
+onMounted(async () => {
   name.value = localStorage.getItem("name") || "";
-  //convertimos
-  todos.value = JSON.parse(localStorage.getItem("todos")) || [];
+  await captarTodos();
 });
 
 </script>
